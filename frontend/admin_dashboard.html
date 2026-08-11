@@ -1,0 +1,1249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI-DOMS | Admin Portal</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; }
+        .nav-active { background-color: #e0f2fe; color: #1e40af; font-weight: 600; border-right: 4px solid #3b82f6; }
+        .spinner { border: 3px solid rgba(0,0,0,0.1); width: 24px; height: 24px; border-radius: 50%; border-left-color: #3b82f6; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        
+        .custom-scroll::-webkit-scrollbar { height: 6px; width: 6px; }
+        .custom-scroll::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 4px; }
+        .custom-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        .custom-scroll::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        
+        .progress-container { width: 100%; background-color: #e2e8f0; border-radius: 9999px; height: 0.5rem; overflow: hidden; }
+        .progress-bar { height: 100%; transition: width 0.5s ease-in-out; }
+    </style>
+</head>
+<body class="h-screen flex overflow-hidden text-slate-800">
+
+    <!-- Sidebar -->
+    <aside class="w-64 bg-white shadow-lg z-20 flex flex-col hidden md:flex border-r border-slate-100">
+        <div class="h-16 flex items-center px-6 border-b border-slate-100 bg-blue-600 text-white">
+            <i class="fa-solid fa-robot text-2xl mr-3"></i>
+            <span class="text-xl font-bold tracking-tight">AI-DOMS</span>
+        </div>
+        <nav class="flex-1 px-4 py-6 space-y-2 overflow-y-auto">
+            <a href="#" onclick="switchTab('dashboard')" id="tab-dashboard" class="nav-active flex items-center px-4 py-3 text-slate-600 rounded-lg hover:bg-slate-50 transition-colors">
+                <i class="fa-solid fa-chart-pie w-6"></i> Dashboard
+            </a>
+            <a href="#" onclick="switchTab('orders')" id="tab-orders" class="flex items-center px-4 py-3 text-slate-600 rounded-lg hover:bg-slate-50 transition-colors">
+                <i class="fa-solid fa-cart-shopping w-6"></i> Orders
+            </a>
+            <a href="#" onclick="switchTab('inventory')" id="tab-inventory" class="flex items-center px-4 py-3 text-slate-600 rounded-lg hover:bg-slate-50 transition-colors">
+                <i class="fa-solid fa-box-open w-6"></i> Inventory
+            </a>
+            <a href="#" onclick="switchTab('distributors')" id="tab-distributors" class="flex items-center px-4 py-3 text-slate-600 rounded-lg hover:bg-slate-50 transition-colors">
+                <i class="fa-solid fa-users w-6"></i> Distributors
+            </a>
+        </nav>
+        <div class="p-4 border-t border-slate-100 text-sm flex items-center gap-3 bg-slate-50">
+            <div class="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold">SM</div>
+            <div>
+                <p class="text-xs text-slate-500">Logged in as</p>
+                <p class="font-semibold text-slate-700">Sales Manager</p>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="flex-1 flex flex-col overflow-hidden relative bg-slate-50">
+        <!-- Header -->
+        <header class="h-16 bg-white shadow-sm flex items-center justify-between px-8 z-10 border-b border-slate-200">
+            <div class="flex items-center gap-4">
+                <h1 id="page-title" class="text-2xl font-semibold text-slate-800">Overview</h1>
+            </div>
+            <div class="flex items-center gap-4">
+                <div class="relative hidden sm:block">
+                    <i class="fa-solid fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400"></i>
+                    <input type="text" id="global-search" oninput="filterData()" placeholder="Search globally..." class="pl-10 pr-4 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-64 bg-slate-50">
+                </div>
+                <button onclick="refreshData()" class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg font-medium hover:bg-slate-50 transition shadow-sm flex items-center text-sm">
+                    <i class="fa-solid fa-rotate-right mr-2 text-blue-500"></i> Refresh
+                </button>
+            </div>
+        </header>
+
+        <!-- Dynamic Content Area -->
+        <div class="flex-1 overflow-auto p-4 sm:p-8 relative custom-scroll">
+            
+            <div id="loader" class="absolute inset-0 bg-slate-50/80 backdrop-blur-sm flex flex-col justify-center items-center z-50 hidden">
+                <div class="spinner mb-4"></div>
+                <p class="text-slate-500 font-medium">Syncing data...</p>
+            </div>
+
+            <!-- Dashboard Tab -->
+            <div id="view-dashboard" class="space-y-6">
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 flex items-center justify-between">
+                        <div>
+                            <p class="text-sm font-medium text-slate-500 mb-1">New Draft Orders</p>
+                            <h3 class="text-3xl font-bold text-slate-800" id="kpi-drafts">-</h3>
+                        </div>
+                        <div class="w-12 h-12 rounded-full bg-blue-50 flex items-center justify-center text-blue-500 text-xl"><i class="fa-solid fa-file-invoice"></i></div>
+                    </div>
+                    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 flex items-center justify-between">
+                        <div>
+                            <p class="text-sm font-medium text-slate-500 mb-1">Credit Holds</p>
+                            <h3 class="text-3xl font-bold text-red-600" id="kpi-holds">-</h3>
+                        </div>
+                        <div class="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center text-red-500 text-xl"><i class="fa-solid fa-hand-holding-dollar"></i></div>
+                    </div>
+                    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 flex items-center justify-between">
+                        <div>
+                            <p class="text-sm font-medium text-slate-500 mb-1">Low Stock Items</p>
+                            <h3 class="text-3xl font-bold text-amber-500" id="kpi-lowstock">-</h3>
+                        </div>
+                        <div class="w-12 h-12 rounded-full bg-amber-50 flex items-center justify-center text-amber-500 text-xl"><i class="fa-solid fa-triangle-exclamation"></i></div>
+                    </div>
+                    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 flex items-center justify-between">
+                        <div>
+                            <p class="text-sm font-medium text-slate-500 mb-1">Total Sales (Approved)</p>
+                            <h3 class="text-2xl font-bold text-emerald-600" id="kpi-sales">₹-</h3>
+                        </div>
+                        <div class="w-12 h-12 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-500 text-xl"><i class="fa-solid fa-indian-rupee-sign"></i></div>
+                    </div>
+                </div>
+
+                <div>
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-lg font-semibold text-slate-800">Recent Actionable Orders</h2>
+                    </div>
+                    <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                        <table class="w-full text-left border-collapse" id="dashboard-table">
+                            <thead>
+                                <tr class="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                                    <th class="p-4">Order</th>
+                                    <th class="p-4">Distributor</th>
+                                    <th class="p-4">Total</th>
+                                    <th class="p-4">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="dashboard-recent-tbody" class="divide-y divide-slate-100 text-sm"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Orders Tab -->
+            <div id="view-orders" class="hidden space-y-6">
+                <div class="flex flex-col sm:flex-row justify-between gap-4 mb-2">
+                    <div class="flex flex-wrap gap-4">
+                        <select id="filter-date" onchange="filterData()" class="border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="All">Date: All</option>
+                            <option value="Today">Today</option>
+                            <option value="Yesterday">Yesterday</option>
+                            <option value="Last 7 Days">Last 7 Days</option>
+                            <option value="This Month">This Month</option>
+                        </select>
+                        <select id="filter-status" onchange="filterData()" class="border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="All">Status: All</option>
+                            <option value="Draft">Draft</option>
+                            <option value="Credit Hold">Credit Hold</option>
+                            <option value="Approved">Approved</option>
+                            <option value="Cancelled">Cancelled</option>
+                        </select>
+                        <select id="filter-payment" onchange="filterData()" class="border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="All">Payment: All</option>
+                            <option value="credit">Credit</option>
+                            <option value="advance">Advance</option>
+                            <option value="cash">Cash</option>
+                        </select>
+                    </div>
+                    <button onclick="openCreateOrderModal()" class="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 shadow-sm transition flex items-center text-sm">
+                        <i class="fa-solid fa-plus mr-2"></i> Create Order
+                    </button>
+                </div>
+
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div class="overflow-x-auto custom-scroll">
+                        <table class="w-full text-left border-collapse min-w-[900px]" id="orders-table">
+                            <thead>
+                                <tr class="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                                    <th class="p-4">Order Details</th>
+                                    <th class="p-4">Distributor</th>
+                                    <th class="p-4">Items Summary</th>
+                                    <th class="p-4">Total (₹)</th>
+                                    <th class="p-4">Delivery</th>
+                                    <th class="p-4">Status</th>
+                                    <th class="p-4 text-right">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="orders-tbody" class="divide-y divide-slate-100 text-sm"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Inventory Tab -->
+            <div id="view-inventory" class="hidden space-y-6">
+                <div class="flex justify-between mb-2">
+                    <div class="relative w-64">
+                        <i class="fa-solid fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400"></i>
+                        <input type="text" id="inventory-search" oninput="filterData()" placeholder="Search products..." class="pl-10 pr-4 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-full bg-white">
+                    </div>
+                    <button onclick="openAddProductModal()" class="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 shadow-sm transition flex items-center text-sm">
+                        <i class="fa-solid fa-plus mr-2"></i> Add Product
+                    </button>
+                </div>
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div class="overflow-x-auto custom-scroll">
+                        <table class="w-full text-left border-collapse min-w-[800px]" id="inventory-table">
+                            <thead>
+                                <tr class="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                                    <th class="p-4">Product / SKU</th>
+                                    <th class="p-4">Size</th>
+                                    <th class="p-4">Base Price</th>
+                                    <th class="p-4">Stock Status</th>
+                                    <th class="p-4 text-right">Manage</th>
+                                </tr>
+                            </thead>
+                            <tbody id="inventory-tbody" class="divide-y divide-slate-100 text-sm"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Distributors Tab -->
+            <div id="view-distributors" class="hidden space-y-6">
+                <div class="flex justify-between mb-2">
+                    <div class="relative w-64">
+                        <i class="fa-solid fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400"></i>
+                        <input type="text" id="distributor-search" oninput="filterData()" placeholder="Search distributors..." class="pl-10 pr-4 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-full bg-white">
+                    </div>
+                    <button onclick="openAddDistributorModal()" class="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 shadow-sm transition flex items-center text-sm">
+                        <i class="fa-solid fa-plus mr-2"></i> Add Distributor
+                    </button>
+                </div>
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div class="overflow-x-auto custom-scroll">
+                        <table class="w-full text-left border-collapse min-w-[1000px]" id="distributors-table">
+                            <thead>
+                                <tr class="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                                    <th class="p-4">Company / Contact</th>
+                                    <th class="p-4">City / Address</th>
+                                    <th class="p-4">Status</th>
+                                    <th class="p-4">Credit Utilization</th>
+                                    <th class="p-4 text-right">Manage</th>
+                                </tr>
+                            </thead>
+                            <tbody id="distributors-tbody" class="divide-y divide-slate-100 text-sm"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- Custom Modals Overlay -->
+    <div id="modal-overlay" class="fixed inset-0 bg-slate-900/60 hidden items-center justify-center z-50 backdrop-blur-sm p-4 overflow-y-auto">
+        
+        <!-- Order Details Modal -->
+        <div id="modal-order-details" class="bg-white rounded-2xl shadow-2xl w-full max-w-5xl hidden flex-col max-h-[90vh] overflow-hidden my-auto relative">
+            <div class="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+                <div>
+                    <h3 class="text-xl font-bold text-slate-800" id="detail-order-number">ORD-XXXX</h3>
+                    <p class="text-sm text-slate-500 mt-1" id="detail-order-date">Date</p>
+                </div>
+                <div class="flex items-center gap-3">
+                    <span id="detail-order-status"></span>
+                    <button onclick="closeModals()" class="text-slate-400 hover:text-slate-600 transition p-2">
+                        <i class="fa-solid fa-xmark text-lg"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <div class="flex-1 overflow-y-auto custom-scroll bg-white flex flex-col lg:flex-row">
+                <div class="flex-1 p-6 lg:border-r border-slate-100">
+                    <div class="grid grid-cols-2 gap-6 mb-8">
+                        <div class="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                            <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2"><i class="fa-solid fa-building mr-1"></i> Distributor</p>
+                            <p class="font-bold text-slate-800 text-lg" id="detail-dist-name">Name</p>
+                            <p class="text-slate-500 text-sm mt-1" id="detail-dist-phone">Phone</p>
+                            <span class="inline-block mt-2 text-xs font-medium px-2 py-0.5 rounded text-slate-600 bg-slate-200 uppercase" id="detail-dist-status">STATUS</span>
+                        </div>
+                        <div class="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                            <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2"><i class="fa-solid fa-truck mr-1"></i> Delivery</p>
+                            <p class="font-bold text-slate-800 text-sm mb-1">Requested Date:</p>
+                            <p class="text-blue-600 font-semibold mb-3" id="detail-req-date">ASAP</p>
+                            <p class="font-bold text-slate-800 text-sm mb-1">Address:</p>
+                            <p class="text-slate-600 text-sm leading-relaxed" id="detail-address">Registered Address</p>
+                        </div>
+                    </div>
+
+                    <h4 class="font-bold text-slate-800 mb-4 text-lg">Order Items</h4>
+                    <div class="border border-slate-200 rounded-xl overflow-hidden mb-8">
+                        <table class="w-full text-left border-collapse">
+                            <thead class="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-500">
+                                <tr><th class="p-3">Product / SKU</th><th class="p-3 text-center">Qty</th><th class="p-3">Price</th><th class="p-3">Subtotal</th><th class="p-3 text-center">Stock Check</th></tr>
+                            </thead>
+                            <tbody id="detail-items-tbody" class="divide-y divide-slate-100 text-sm"></tbody>
+                        </table>
+                    </div>
+                    
+                    <div class="bg-blue-50/50 p-5 rounded-xl border border-blue-100">
+                        <p class="text-xs font-semibold text-blue-400 uppercase tracking-wider mb-3"><i class="fa-solid fa-wallet mr-1"></i> Financial</p>
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-slate-600">Payment Type:</span>
+                            <span class="font-bold text-slate-800 capitalize" id="detail-payment-type">Credit</span>
+                        </div>
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-slate-600">Credit Limit:</span>
+                            <span class="font-medium text-slate-800" id="detail-credit-limit">₹0</span>
+                        </div>
+                        <div class="flex justify-between items-center mb-4">
+                            <span class="text-slate-600">Credit Used:</span>
+                            <span class="font-medium text-slate-800" id="detail-credit-used">₹0</span>
+                        </div>
+                        <div class="flex justify-between items-center pt-3 border-t border-blue-200/60">
+                            <span class="font-bold text-slate-800">Total Order Amount:</span>
+                            <span class="text-xl font-bold text-blue-700" id="detail-total">₹0</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Order Timeline -->
+                <div class="w-full lg:w-80 p-6 bg-slate-50/50">
+                    <h4 class="font-bold text-slate-800 mb-6 text-sm">Order Timeline</h4>
+                    <div class="relative border-l-2 border-slate-200 ml-3 space-y-8" id="detail-timeline">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+            </div>
+            
+            <div class="p-4 border-t border-slate-100 bg-slate-50 flex justify-end gap-3" id="detail-action-footer">
+                <button onclick="closeModals()" class="px-5 py-2 text-slate-600 hover:bg-slate-200 rounded-lg font-medium transition">Close</button>
+                <div id="detail-cancel-btn-container"></div>
+                <div id="detail-approve-btn-container"></div>
+            </div>
+        </div>
+
+        <!-- Add Product Modal -->
+        <div id="modal-add-product" class="bg-white rounded-2xl shadow-2xl w-full max-w-lg hidden flex-col my-auto relative">
+            <div class="p-6 border-b border-slate-100">
+                <h3 class="text-xl font-bold text-slate-800">Add New Product</h3>
+            </div>
+            <div class="p-6 space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Product Name</label>
+                    <input type="text" id="add-prod-name" class="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">SKU</label>
+                    <input type="text" id="add-prod-sku" class="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Size (ml)</label>
+                        <input type="number" id="add-prod-size" class="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Base Price (₹)</label>
+                        <input type="number" id="add-prod-price" class="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Initial Stock</label>
+                    <input type="number" id="add-prod-stock" class="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                </div>
+            </div>
+            <div class="p-4 border-t border-slate-100 bg-slate-50 flex justify-end gap-3 rounded-b-2xl">
+                <button onclick="closeModals()" class="px-5 py-2 text-slate-600 hover:bg-slate-200 rounded-lg font-medium transition">Cancel</button>
+                <button onclick="submitAddProduct()" class="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition shadow-sm">Create Product</button>
+            </div>
+        </div>
+
+        <!-- Add Distributor Modal -->
+        <div id="modal-add-distributor" class="bg-white rounded-2xl shadow-2xl w-full max-w-lg hidden flex-col my-auto relative">
+            <div class="p-6 border-b border-slate-100">
+                <h3 class="text-xl font-bold text-slate-800">Add Distributor</h3>
+            </div>
+            <div class="p-6 space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Company Name</label>
+                    <input type="text" id="add-dist-company" class="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Contact Person</label>
+                        <input type="text" id="add-dist-owner" class="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Phone Number</label>
+                        <input type="text" id="add-dist-phone" class="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none" placeholder="e.g. 919876543210">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Address / City</label>
+                    <input type="text" id="add-dist-address" class="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Credit Limit (₹)</label>
+                        <input type="number" id="add-dist-limit" class="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Status</label>
+                        <select id="add-dist-status" class="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white">
+                            <option value="active">Active</option>
+                            <option value="lead">Lead</option>
+                            <option value="inactive">Inactive</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <div class="p-4 border-t border-slate-100 bg-slate-50 flex justify-end gap-3 rounded-b-2xl">
+                <button onclick="closeModals()" class="px-5 py-2 text-slate-600 hover:bg-slate-200 rounded-lg font-medium transition">Cancel</button>
+                <button onclick="submitAddDistributor()" class="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition shadow-sm">Create Distributor</button>
+            </div>
+        </div>
+
+        <!-- Stock Adjustment Modal -->
+        <div id="modal-stock" class="bg-white rounded-2xl shadow-xl w-full max-w-md hidden flex-col my-auto relative">
+            <div class="p-6">
+                <h3 class="text-xl font-bold text-slate-800 mb-1">Stock Adjustment</h3>
+                <p class="text-sm font-semibold text-blue-600 mb-6" id="stock-sku-label">SKU</p>
+                
+                <div class="bg-slate-50 rounded-lg p-4 mb-4 border border-slate-100">
+                    <p class="text-xs text-slate-500 mb-1">Current Stock</p>
+                    <p class="text-2xl font-bold text-slate-800" id="stock-current-val">0</p>
+                </div>
+
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Adjustment (+ OR -)</label>
+                        <input type="number" id="stock-delta-input" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-lg focus:ring-2 focus:ring-blue-500 focus:outline-none" placeholder="e.g. +50 or -10">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Reason</label>
+                        <select id="stock-reason" class="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white">
+                            <option value="New Stock (+)">New Stock (+)</option>
+                            <option value="Sale / Dispatch (-)">Sale / Dispatch (-)</option>
+                            <option value="Damaged / Returned (-)">Damaged / Returned (-)</option>
+                            <option value="Manual Correction">Manual Correction</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <div class="p-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-3 rounded-b-2xl">
+                <button onclick="closeModals()" class="px-4 py-2 text-slate-600 hover:bg-slate-200 rounded-lg font-medium transition">Cancel</button>
+                <button onclick="submitStockAdjustment()" class="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 shadow-sm transition">Save Changes</button>
+            </div>
+        </div>
+
+        <!-- Credit Adjustment Modal -->
+        <div id="modal-credit" class="bg-white rounded-2xl shadow-xl w-full max-w-md hidden flex-col my-auto relative">
+            <div class="p-6">
+                <h3 class="text-xl font-bold text-slate-800 mb-1">Credit Adjustment</h3>
+                <p class="text-sm font-semibold text-blue-600 mb-6" id="credit-phone-label">Distributor</p>
+                
+                <div class="bg-slate-50 rounded-lg p-4 mb-4 border border-slate-100">
+                    <p class="text-xs text-slate-500 mb-1">Currently Used Credit</p>
+                    <p class="text-2xl font-bold text-red-600" id="credit-current-val">₹0</p>
+                </div>
+
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Adjustment Delta (+ OR -)</label>
+                        <input type="number" id="credit-delta-input" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-lg focus:ring-2 focus:ring-blue-500 focus:outline-none" placeholder="e.g. +5000 or -2000">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Reason (For Audit)</label>
+                        <select id="credit-reason" class="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white">
+                            <option value="Payment Received (-)">Payment Received (-)</option>
+                            <option value="Order Billed (+)">Order Billed (+)</option>
+                            <option value="Manual Correction">Manual Correction</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <div class="p-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-3 rounded-b-2xl">
+                <button onclick="closeModals()" class="px-4 py-2 text-slate-600 hover:bg-slate-200 rounded-lg font-medium transition">Cancel</button>
+                <button onclick="submitCreditAdjustment()" class="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 shadow-sm transition">Save Changes</button>
+            </div>
+        </div>
+
+        <!-- Create Manual Order Modal -->
+        <div id="modal-create-order" class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl hidden flex-col my-auto relative">
+            <div class="p-6 border-b border-slate-100">
+                <h3 class="text-xl font-bold text-slate-800">Create Manual Order</h3>
+            </div>
+            <div class="p-6 space-y-6 max-h-[70vh] overflow-y-auto custom-scroll">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Select Distributor</label>
+                    <select id="create-order-dist" class="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white">
+                        <option value="">Select Distributor...</option>
+                    </select>
+                </div>
+                
+                <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                    <h4 class="font-semibold text-sm text-slate-800 mb-3">Products</h4>
+                    <div id="create-order-items" class="space-y-3">
+                        <div class="flex gap-3 item-row mb-2">
+                            <select class="flex-1 border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white prod-select"></select>
+                            <input type="number" placeholder="Qty (Cartons)" class="w-32 border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none qty-input">
+                        </div>
+                    </div>
+                    <button onclick="addOrderItemRow()" class="mt-3 text-sm text-blue-600 font-medium hover:text-blue-800"><i class="fa-solid fa-plus mr-1"></i> Add Another Product</button>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Payment Type</label>
+                        <select id="create-order-payment" class="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white">
+                            <option value="credit">Credit</option>
+                            <option value="cash">Cash</option>
+                            <option value="advance">Advance</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Requested Date</label>
+                        <input type="text" id="create-order-date" placeholder="e.g. Friday or 14 Aug" class="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Delivery Address (Leave blank for default)</label>
+                    <input type="text" id="create-order-address" placeholder="Custom address or leave empty" class="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                </div>
+            </div>
+            <div class="p-4 border-t border-slate-100 bg-slate-50 flex justify-end gap-3 rounded-b-2xl">
+                <button onclick="closeModals()" class="px-5 py-2 text-slate-600 hover:bg-slate-200 rounded-lg font-medium transition">Cancel</button>
+                <button onclick="submitManualOrder()" class="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition shadow-sm">Submit Order</button>
+            </div>
+        </div>
+
+        <!-- Custom Message Modal -->
+        <div id="modal-msg" class="bg-white rounded-xl shadow-2xl p-6 w-full max-w-sm hidden flex-col items-center text-center my-auto relative z-[60]">
+            <div id="msg-icon" class="text-4xl mb-4"></div>
+            <p id="msg-text" class="text-slate-700 font-medium mb-6"></p>
+            <div id="msg-buttons" class="w-full flex gap-3">
+                <button onclick="closeMsgModal()" class="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition">OK</button>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        const API_URL = "http://localhost:8000/api";
+        let globalOrders = [];
+        let globalInventory = [];
+        let globalDistributors = [];
+        let globalProducts = [];
+
+        function showLoader(show) { document.getElementById('loader').style.display = show ? 'flex' : 'none'; }
+        
+        function showMsg(text, isError = false) {
+            document.getElementById('msg-text').textContent = text;
+            document.getElementById('msg-icon').innerHTML = isError ? '<i class="fa-solid fa-circle-exclamation text-red-500"></i>' : '<i class="fa-solid fa-circle-info text-blue-500"></i>';
+            document.getElementById('msg-buttons').innerHTML = `<button onclick="closeMsgModal()" class="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition">OK</button>`;
+            
+            document.getElementById('modal-overlay').style.display = 'flex';
+            document.getElementById('modal-msg').style.display = 'flex';
+        }
+
+        function showConfirm(text, onConfirm) {
+            document.getElementById('msg-text').textContent = text;
+            document.getElementById('msg-icon').innerHTML = '<i class="fa-solid fa-circle-question text-amber-500"></i>';
+            document.getElementById('msg-buttons').innerHTML = `
+                <button onclick="closeMsgModal()" class="flex-1 px-4 py-2 bg-slate-200 text-slate-700 rounded-lg font-medium hover:bg-slate-300 transition">Cancel</button>
+                <button id="confirm-action-btn" class="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 transition">Confirm</button>
+            `;
+            document.getElementById('confirm-action-btn').onclick = () => { closeMsgModal(); onConfirm(); };
+            
+            document.getElementById('modal-overlay').style.display = 'flex';
+            document.getElementById('modal-msg').style.display = 'flex';
+        }
+        
+        function closeMsgModal() {
+            document.getElementById('modal-msg').style.display = 'none';
+            const otherModals = ['modal-order-details', 'modal-stock', 'modal-credit', 'modal-create-order', 'modal-add-product', 'modal-add-distributor'];
+            const isAnyOtherOpen = otherModals.some(id => document.getElementById(id).style.display === 'flex');
+            if (!isAnyOtherOpen) {
+                document.getElementById('modal-overlay').style.display = 'none';
+            }
+        }
+
+        function closeModals() {
+            document.getElementById('modal-overlay').style.display = 'none';
+            const modals = ['modal-order-details', 'modal-stock', 'modal-credit', 'modal-msg', 'modal-create-order', 'modal-add-product', 'modal-add-distributor'];
+            modals.forEach(m => document.getElementById(m).style.display = 'none');
+        }
+
+        function switchTab(tabId) {
+            ['dashboard', 'orders', 'inventory', 'distributors'].forEach(t => {
+                document.getElementById('view-' + t).style.display = 'none';
+                document.getElementById('tab-' + t).classList.remove('nav-active');
+            });
+            document.getElementById('view-' + tabId).style.display = 'block';
+            document.getElementById('tab-' + tabId).classList.add('nav-active');
+            
+            const titles = { 'dashboard': 'Overview', 'orders': 'Order Management', 'inventory': 'Inventory Control', 'distributors': 'Distributor Directory' };
+            document.getElementById('page-title').textContent = titles[tabId];
+            filterData();
+        }
+
+        async function fetchData() {
+            showLoader(true);
+            try {
+                const [ordersRes, invRes, distRes] = await Promise.all([
+                    fetch(`${API_URL}/orders/`),
+                    fetch(`${API_URL}/products/`),
+                    fetch(`${API_URL}/distributors/`)
+                ]);
+                globalOrders = await ordersRes.json();
+                globalInventory = await invRes.json();
+                globalDistributors = await distRes.json();
+                
+                // For the dropdown we can just use the globalInventory
+                globalProducts = globalInventory;
+
+                renderDashboard();
+                renderOrders();
+                renderInventory();
+                renderDistributors();
+                filterData();
+            } catch (err) {
+                console.error("Failed to fetch data:", err);
+            }
+            showLoader(false);
+        }
+
+        async function refreshData() { await fetchData(); }
+
+        function getStatusBadge(status) {
+            if (status === 'Draft') return `<span class="px-2.5 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-700 border border-blue-200 inline-flex items-center w-max"><div class="w-1.5 h-1.5 rounded-full bg-blue-500 mr-1.5"></div>Draft</span>`;
+            if (status === 'Approved') return `<span class="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-700 border border-emerald-200 inline-flex items-center w-max"><i class="fa-solid fa-check mr-1.5"></i>Approved</span>`;
+            if (status === 'Credit Hold') return `<span class="px-2.5 py-1 rounded-full text-xs font-bold bg-red-100 text-red-700 border border-red-200 inline-flex items-center w-max"><div class="w-1.5 h-1.5 rounded-full bg-red-500 mr-1.5 animate-pulse"></div>Credit Hold</span>`;
+            if (status === 'Cancelled') return `<span class="px-2.5 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-500 border border-slate-200 inline-flex items-center w-max"><i class="fa-solid fa-ban mr-1.5"></i>Cancelled</span>`;
+            return `<span class="px-2 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-600">${status}</span>`;
+        }
+
+        function isDateInRange(dateString, range) {
+            if (range === 'All') return true;
+            const date = new Date(dateString);
+            const today = new Date();
+            today.setHours(0,0,0,0);
+            const yesterday = new Date(today); yesterday.setDate(yesterday.getDate() - 1);
+            const weekAgo = new Date(today); weekAgo.setDate(weekAgo.getDate() - 7);
+            
+            if (range === 'Today') return date >= today;
+            if (range === 'Yesterday') return date >= yesterday && date < today;
+            if (range === 'Last 7 Days') return date >= weekAgo;
+            if (range === 'This Month') return date.getMonth() === today.getMonth() && date.getFullYear() === today.getFullYear();
+            return true;
+        }
+
+        function renderDashboard() {
+            const drafts = globalOrders.filter(o => o.status === 'Draft').length;
+            const holds = globalOrders.filter(o => o.status === 'Credit Hold').length;
+            const lowStock = globalInventory.filter(p => p.stock_available < 50).length;
+            const sales = globalOrders.filter(o => o.status === 'Approved').reduce((sum, o) => sum + o.total_amount, 0);
+
+            document.getElementById('kpi-drafts').textContent = drafts;
+            document.getElementById('kpi-holds').textContent = holds;
+            document.getElementById('kpi-lowstock').textContent = lowStock;
+            document.getElementById('kpi-sales').textContent = `₹${sales.toLocaleString()}`;
+
+            const tbody = document.getElementById('dashboard-recent-tbody');
+            tbody.innerHTML = '';
+            globalOrders.slice(0, 5).forEach(o => {
+                const dist = globalDistributors.find(d => d.id === o.distributor_id);
+                const distName = dist ? dist.company_name : 'Unknown';
+                tbody.innerHTML += `
+                    <tr class="hover:bg-slate-50 transition filter-row" data-search="${o.order_number} ${distName}">
+                        <td class="p-4 font-mono text-slate-600">${o.order_number}</td>
+                        <td class="p-4 font-medium text-slate-800">${distName}</td>
+                        <td class="p-4 font-bold">₹${o.total_amount}</td>
+                        <td class="p-4">${getStatusBadge(o.status)}</td>
+                    </tr>
+                `;
+            });
+        }
+
+        function renderOrders() {
+            const tbody = document.getElementById('orders-tbody');
+            tbody.innerHTML = '';
+            globalOrders.forEach(o => {
+                const dist = globalDistributors.find(d => d.id === o.distributor_id);
+                const distName = dist ? dist.company_name : 'Unknown';
+                
+                // Fallback gracefully if product info is missing
+                let firstItemName = 'Unknown Item';
+                if (o.items && o.items.length > 0 && o.items[0].product) {
+                    firstItemName = o.items[0].product.product_name;
+                }
+                const itemsSummary = o.items.length > 0 ? `${firstItemName} × ${o.items[0].quantity_cartons}` + (o.items.length > 1 ? ` +${o.items.length-1} more` : '') : 'No items';
+                const dateStr = new Date(o.created_at).toLocaleString('en-IN', {day:'numeric', month:'short', hour:'2-digit', minute:'2-digit'});
+                
+                tbody.innerHTML += `
+                    <tr class="hover:bg-slate-50 transition filter-row" 
+                        data-search="${o.order_number} ${distName} ${itemsSummary}"
+                        data-status="${o.status}"
+                        data-payment="${o.payment_type}"
+                        data-date="${o.created_at}">
+                        <td class="p-4">
+                            <p class="font-mono text-slate-600 font-medium">${o.order_number}</p>
+                            <p class="text-xs text-slate-400 mt-1">${dateStr}</p>
+                        </td>
+                        <td class="p-4 font-medium text-slate-800">${distName}</td>
+                        <td class="p-4 text-slate-600 text-sm truncate max-w-[200px]" title="${itemsSummary}">${itemsSummary}</td>
+                        <td class="p-4 font-bold text-slate-800">₹${o.total_amount}</td>
+                        <td class="p-4 text-slate-600 text-sm">${o.requested_delivery_date || 'ASAP'}</td>
+                        <td class="p-4">${getStatusBadge(o.status)}</td>
+                        <td class="p-4 text-right">
+                            <button onclick="openOrderDetails('${o.id}')" class="px-3 py-1 text-sm bg-white border border-slate-200 hover:bg-slate-100 rounded-md font-medium text-slate-600 transition">View</button>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        function renderInventory() {
+            const tbody = document.getElementById('inventory-tbody');
+            tbody.innerHTML = '';
+            globalInventory.forEach(p => {
+                const stockClass = p.stock_available > 50 ? 'text-emerald-600' : (p.stock_available > 0 ? 'text-amber-500' : 'text-red-500');
+                const stockIcon = p.stock_available > 50 ? 'OK' : (p.stock_available > 0 ? 'Low' : 'Out');
+                const sizeDisplay = p.size_ml ? `${p.size_ml}ml` : 'Standard'; 
+                
+                tbody.innerHTML += `
+                    <tr class="hover:bg-slate-50 transition filter-row" data-search="${p.product_name} ${p.sku}">
+                        <td class="p-4">
+                            <p class="font-medium text-slate-800">${p.product_name}</p>
+                            <p class="text-xs text-slate-400 font-mono mt-0.5">${p.sku}</p>
+                        </td>
+                        <td class="p-4 text-slate-600">${sizeDisplay}</td>
+                        <td class="p-4 text-slate-800">₹${p.price_per_carton}</td>
+                        <td class="p-4 font-bold ${stockClass}"><i class="fa-solid fa-circle text-[8px] mr-1"></i> ${p.stock_available} Cartons <span class="ml-1 text-[10px] px-1.5 py-0.5 bg-slate-100 text-slate-500 rounded">${stockIcon}</span></td>
+                        <td class="p-4 text-right">
+                            <button onclick="openStockModal('${p.sku}', ${p.stock_available})" class="px-3 py-1 text-sm bg-white border border-slate-200 hover:bg-slate-100 rounded-md font-medium text-slate-600 transition"><i class="fa-solid fa-calculator mr-1"></i> Adjust</button>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        function renderDistributors() {
+            const tbody = document.getElementById('distributors-tbody');
+            tbody.innerHTML = '';
+            globalDistributors.forEach(d => {
+                const limit = d.credit_limit || 0;
+                const used = d.credit_used || 0;
+                const avail = limit - used;
+                const pct = limit > 0 ? Math.min(100, (used / limit) * 100) : 0;
+                const barColor = pct > 90 ? 'bg-red-500' : (pct > 75 ? 'bg-amber-400' : 'bg-emerald-500');
+
+                tbody.innerHTML += `
+                    <tr class="hover:bg-slate-50 transition filter-row" data-search="${d.company_name} ${d.owner_name} ${d.phone_number} ${d.city || ''} ${d.address || ''}">
+                        <td class="p-4">
+                            <p class="font-medium text-slate-800">${d.company_name || 'Unnamed'}</p>
+                            <p class="text-xs text-slate-500 mt-1"><i class="fa-regular fa-user mr-1"></i>${d.owner_name || 'N/A'} <span class="mx-1 text-slate-300">|</span> <i class="fa-solid fa-phone mr-1"></i>${d.phone_number}</p>
+                        </td>
+                        <td class="p-4 text-slate-600 text-sm">${d.city || d.address || 'No Address'}</td>
+                        <td class="p-4"><span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${d.status==='active'?'bg-emerald-100 text-emerald-700':'bg-slate-100 text-slate-600'}">${d.status}</span></td>
+                        <td class="p-4 w-64">
+                            <div class="flex justify-between text-xs mb-1"><span class="text-slate-500">Avail: <strong class="${avail < 0 ? 'text-red-500' : 'text-emerald-600'}">₹${avail.toLocaleString()}</strong></span><span class="text-slate-400">Used: ₹${used.toLocaleString()}</span></div>
+                            <div class="progress-container"><div class="progress-bar ${barColor}" style="width: ${pct}%"></div></div>
+                        </td>
+                        <td class="p-4 text-right space-x-2">
+                             <button onclick="openDistributorProfile('${d.id}')" class="px-3 py-1 text-sm bg-white border border-slate-200 hover:bg-slate-100 rounded-md font-medium text-slate-600 transition"><i class="fa-solid fa-eye mr-1"></i> View</button>
+                            <button onclick="openCreditModal('${d.phone_number}', ${used})" class="px-3 py-1 text-sm bg-white border border-slate-200 hover:bg-slate-100 rounded-md font-medium text-slate-600 transition"><i class="fa-solid fa-wallet mr-1"></i> Edit Credit</button>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        function filterData() {
+            const activeTab = document.querySelector('.nav-active').id.replace('tab-', '');
+            const globalQuery = document.getElementById('global-search').value.toLowerCase();
+            
+            let tabQuery = "";
+            let statusFilter = "All";
+            let paymentFilter = "All";
+            let dateFilter = "All";
+
+            if (activeTab === 'inventory') tabQuery = document.getElementById('inventory-search').value.toLowerCase();
+            if (activeTab === 'distributors') tabQuery = document.getElementById('distributor-search').value.toLowerCase();
+            if (activeTab === 'orders') {
+                statusFilter = document.getElementById('filter-status').value;
+                paymentFilter = document.getElementById('filter-payment').value;
+                dateFilter = document.getElementById('filter-date').value;
+            }
+
+            const searchStr = globalQuery || tabQuery;
+            const container = document.getElementById('view-' + activeTab);
+            const rows = container.querySelectorAll('.filter-row');
+
+            rows.forEach(row => {
+                let show = true;
+                const searchData = (row.getAttribute('data-search') || '').toLowerCase();
+                
+                if (searchStr && !searchData.includes(searchStr)) show = false;
+
+                if (activeTab === 'orders' && show) {
+                    const rowStatus = row.getAttribute('data-status');
+                    const rowPayment = row.getAttribute('data-payment');
+                    const rowDate = row.getAttribute('data-date');
+
+                    if (statusFilter !== 'All' && rowStatus !== statusFilter) show = false;
+                    if (paymentFilter !== 'All' && rowPayment !== paymentFilter) show = false;
+                    if (!isDateInRange(rowDate, dateFilter)) show = false;
+                }
+
+                row.style.display = show ? '' : 'none';
+            });
+        }
+
+        function buildTimeline(order) {
+            const container = document.getElementById('detail-timeline');
+            container.innerHTML = '';
+            
+            const createDate = new Date(order.created_at).toLocaleString('en-IN', {month:'short', day:'numeric', hour:'numeric', minute:'2-digit'});
+            
+            let html = `
+                <div class="relative">
+                    <div class="absolute -left-[21px] bg-amber-400 h-3 w-3 rounded-full border-2 border-white shadow-sm"></div>
+                    <p class="text-xs text-slate-500 font-mono">${createDate}</p>
+                    <p class="font-semibold text-sm text-slate-800">🟡 Order Draft Created</p>
+                    <p class="text-xs text-slate-500 mt-0.5">Source: System / Webhook</p>
+                </div>
+            `;
+
+            if (order.status === 'Credit Hold') {
+                html += `
+                    <div class="relative">
+                        <div class="absolute -left-[21px] bg-red-500 h-3 w-3 rounded-full border-2 border-white shadow-sm"></div>
+                        <p class="text-xs text-slate-500 font-mono">${createDate}</p>
+                        <p class="font-semibold text-sm text-red-600">🔴 Credit Hold Applied</p>
+                        <p class="text-xs text-slate-500 mt-0.5">Requires Sales Manager Review</p>
+                    </div>
+                `;
+            } else if (order.status === 'Cancelled') {
+                 // Use updated_at since it indicates the moment of cancellation
+                 const cancelDate = new Date(order.updated_at || order.created_at).toLocaleString('en-IN', {month:'short', day:'numeric', hour:'numeric', minute:'2-digit'});
+                 html += `
+                    <div class="relative">
+                        <div class="absolute -left-[21px] bg-slate-500 h-3 w-3 rounded-full border-2 border-white shadow-sm"></div>
+                        <p class="text-xs text-slate-500 font-mono">${cancelDate}</p>
+                        <p class="font-semibold text-sm text-slate-600">🛑 Order Cancelled</p>
+                        <p class="text-xs text-slate-500 mt-0.5">By: ${order.remarks || 'Unknown'}</p>
+                    </div>
+                `;
+            }
+
+            if (order.status === 'Approved' || order.status === 'Dispatched' || order.status === 'Delivered') {
+                const approveTimeStr = order.approved_at || order.updated_at || order.created_at;
+                const approveDate = new Date(approveTimeStr).toLocaleString('en-IN', {month:'short', day:'numeric', hour:'numeric', minute:'2-digit'});
+                
+                // For Invoice, we simulate it was generated a few seconds after approval
+                let invTime = new Date(approveTimeStr);
+                invTime.setSeconds(invTime.getSeconds() + 2); 
+                const invDate = new Date(invTime).toLocaleString('en-IN', {month:'short', day:'numeric', hour:'numeric', minute:'2-digit'});
+
+                html += `
+                    <div class="relative">
+                        <div class="absolute -left-[21px] bg-emerald-500 h-3 w-3 rounded-full border-2 border-white shadow-sm"></div>
+                        <p class="text-xs text-slate-500 font-mono">${approveDate}</p>
+                        <p class="font-semibold text-sm text-emerald-600">🟢 Order Approved</p>
+                        <p class="text-xs text-slate-500 mt-0.5">By: ${order.approved_by || 'Sales Manager'}</p>
+                    </div>
+                    <div class="relative">
+                        <div class="absolute -left-[21px] bg-blue-500 h-3 w-3 rounded-full border-2 border-white shadow-sm"></div>
+                        <p class="text-xs text-slate-500 font-mono">${invDate}</p>
+                        <p class="font-semibold text-sm text-blue-600">📄 Invoice PDF Generated</p>
+                        <p class="text-xs text-slate-500 mt-0.5">Stored internally. Awaiting dispatch.</p>
+                    </div>
+                `;
+            }
+
+            if (order.status === 'Draft' || order.status === 'Credit Hold') {
+                html += `
+                    <div class="relative opacity-50">
+                        <div class="absolute -left-[21px] bg-slate-200 h-3 w-3 rounded-full border-2 border-white"></div>
+                        <p class="font-semibold text-sm text-slate-500 mt-1">⏳ Pending Approval</p>
+                    </div>
+                `;
+            }
+            container.innerHTML = html;
+        }
+
+        async function openOrderDetails(orderId) {
+            showLoader(true);
+            try {
+                const res = await fetch(`${API_URL}/orders/${orderId}`);
+                if (!res.ok) throw new Error("Order not found");
+                const order = await res.json();
+                
+                const dist = globalDistributors.find(d => d.id === order.distributor_id);
+                
+                document.getElementById('detail-order-number').textContent = order.order_number;
+                document.getElementById('detail-order-date').textContent = new Date(order.created_at).toLocaleString('en-IN', { dateStyle: 'long', timeStyle: 'short' });
+                document.getElementById('detail-order-status').innerHTML = getStatusBadge(order.status);
+                
+                document.getElementById('detail-dist-name').textContent = dist ? dist.company_name : 'Unknown';
+                document.getElementById('detail-dist-phone').textContent = dist ? dist.phone_number : 'N/A';
+                document.getElementById('detail-dist-status').textContent = dist ? dist.status : 'N/A';
+                
+                document.getElementById('detail-req-date').textContent = order.requested_delivery_date || 'ASAP';
+                document.getElementById('detail-address').textContent = order.delivery_address || (dist ? (dist.address || 'Registered Address') : 'N/A');
+                
+                document.getElementById('detail-payment-type').textContent = order.payment_type;
+                document.getElementById('detail-credit-limit').textContent = `₹${dist ? (dist.credit_limit||0).toLocaleString() : 0}`;
+                document.getElementById('detail-credit-used').textContent = `₹${dist ? (dist.credit_used||0).toLocaleString() : 0}`;
+                document.getElementById('detail-total').textContent = `₹${order.total_amount.toLocaleString()}`;
+
+                const tbody = document.getElementById('detail-items-tbody');
+                tbody.innerHTML = '';
+                
+                // Now using the nested product details instead of fetching them
+                for (const item of order.items) {
+                    const prod = item.product || { product_name: 'Unknown Product', sku: 'UNKNOWN', stock_available: 0 };
+                    const isFull = item.availability_status === 'full';
+                    const stockBadge = `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${isFull ? 'bg-emerald-50 text-emerald-600 border border-emerald-200' : 'bg-amber-50 text-amber-600 border border-amber-200'}"><i class="fa-solid ${isFull ? 'fa-check' : 'fa-triangle-exclamation'} mr-1"></i> ${isFull ? 'Full' : 'Partial'} (${prod.stock_available})</span>`;
+                    
+                    tbody.innerHTML += `
+                        <tr class="hover:bg-slate-50">
+                            <td class="p-3"><p class="font-medium text-slate-800">${prod.product_name}</p><p class="text-[10px] text-slate-400 font-mono">${prod.sku}</p></td>
+                            <td class="p-3 text-center font-bold text-slate-800">${item.quantity_cartons}</td>
+                            <td class="p-3 text-slate-600">₹${item.price}</td>
+                            <td class="p-3 font-bold text-slate-800">₹${item.subtotal}</td>
+                            <td class="p-3 text-center">${stockBadge}</td>
+                        </tr>
+                    `;
+                }
+
+                buildTimeline(order);
+
+                const btnContainer = document.getElementById('detail-approve-btn-container');
+                const cancelBtnContainer = document.getElementById('detail-cancel-btn-container');
+                
+                if (['Draft', 'Credit Hold'].includes(order.status)) {
+                    let btnClass = order.status === 'Credit Hold' ? 'bg-red-600 hover:bg-red-700 shadow-red-200' : 'bg-blue-600 hover:bg-blue-700 shadow-blue-200';
+                    btnContainer.innerHTML = `<button onclick="approveOrder('${order.id}')" class="px-6 py-2 text-white rounded-lg font-bold transition shadow-md ${btnClass} flex items-center"><i class="fa-solid fa-check-double mr-2"></i> Approve Order</button>`;
+                    cancelBtnContainer.innerHTML = `<button onclick="cancelOrder('${order.id}')" class="px-4 py-2 bg-white text-red-600 border border-red-200 hover:bg-red-50 rounded-lg font-bold transition flex items-center"><i class="fa-solid fa-ban mr-2"></i> Cancel Order</button>`;
+                } else if (order.status === 'Approved') {
+                     btnContainer.innerHTML = `<button class="px-4 py-2 bg-emerald-50 text-emerald-700 rounded-lg font-bold border border-emerald-200 flex items-center hover:bg-emerald-100 transition"><i class="fa-solid fa-download mr-2"></i> Download Invoice</button>`;
+                     cancelBtnContainer.innerHTML = '';
+                } else {
+                    btnContainer.innerHTML = '';
+                    cancelBtnContainer.innerHTML = '';
+                }
+
+                document.getElementById('modal-overlay').style.display = 'flex';
+                document.getElementById('modal-order-details').style.display = 'flex';
+            } catch (err) {
+                console.error(err);
+                showMsg("Failed to load details. Ensure backend has updated schema.", true);
+            }
+            showLoader(false);
+        }
+        
+        async function openDistributorProfile(distId) {
+            showMsg("Distributor Detailed Profile Feature\n(History, Address, Pricing)\n\nAvailable in next milestone.");
+        }
+
+        async function approveOrder(orderId) {
+            showLoader(true);
+            try {
+                const res = await fetch(`${API_URL}/orders/${orderId}/approve?approved_by=Sales Manager`, { method: 'POST' });
+                if(res.ok) {
+                    closeModals();
+                    await refreshData();
+                    showMsg("Order approved and Invoice generated!");
+                } else {
+                    showMsg("Failed to approve.", true);
+                }
+            } catch(e) { console.error(e); showMsg("Network Error.", true); }
+            showLoader(false);
+        }
+
+        async function cancelOrder(orderId) {
+            showConfirm("Are you sure you want to cancel this order? This cannot be undone.", async () => {
+                showLoader(true);
+                try {
+                    const res = await fetch(`${API_URL}/orders/${orderId}/cancel?cancelled_by=Sales Manager`, { method: 'POST' });
+                    if(res.ok) {
+                        closeModals();
+                        await refreshData();
+                        showMsg("Order cancelled successfully!");
+                    } else {
+                        const errData = await res.json();
+                        showMsg("Failed to cancel order: " + errData.detail, true);
+                    }
+                } catch(e) { console.error(e); showMsg("Network Error.", true); }
+                showLoader(false);
+            });
+        }
+
+        function openStockModal(sku, currentStock) {
+            document.getElementById('stock-sku-label').textContent = sku;
+            document.getElementById('stock-current-val').textContent = currentStock;
+            document.getElementById('stock-delta-input').value = '';
+            document.getElementById('modal-overlay').style.display = 'flex';
+            document.getElementById('modal-stock').style.display = 'flex';
+        }
+
+        async function submitStockAdjustment() {
+            const sku = document.getElementById('stock-sku-label').textContent;
+            const current = parseInt(document.getElementById('stock-current-val').textContent);
+            const reason = document.getElementById('stock-reason').value;
+            const inputValue = parseInt(document.getElementById('stock-delta-input').value);
+
+            if (isNaN(inputValue)) return showMsg("Please enter a valid number.", true);
+
+            // Handle the math properly based on selection
+            let inputDelta = Math.abs(inputValue); 
+            if (reason.includes('(-)')) {
+                inputDelta = -inputDelta; // Force subtraction
+            } else if (reason === 'Manual Correction') {
+                inputDelta = inputValue; // Accept exactly what the user typed (+ or -)
+            }
+
+            const newStock = Math.max(0, current + inputDelta);
+
+            showLoader(true);
+            try {
+                const res = await fetch(`${API_URL}/admin/products/${sku}/stock`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ stock_available: newStock })
+                });
+                if(res.ok) {
+                    closeModals();
+                    await refreshData();
+                    showMsg(`Stock updated successfully. New total: ${newStock}`);
+                } else { showMsg("Failed to update.", true); }
+            } catch(e) { console.error(e); showMsg("Network Error.", true); }
+            showLoader(false);
+        }
+
+        function openCreditModal(phone, currentUsed) {
+            document.getElementById('credit-phone-label').textContent = phone;
+            document.getElementById('credit-current-val').textContent = `₹${currentUsed}`;
+            document.getElementById('credit-delta-input').value = '';
+            document.getElementById('modal-overlay').style.display = 'flex';
+            document.getElementById('modal-credit').style.display = 'flex';
+        }
+
+        async function submitCreditAdjustment() {
+            const phone = document.getElementById('credit-phone-label').textContent;
+            const current = parseFloat(document.getElementById('credit-current-val').textContent.replace('₹',''));
+            const reason = document.getElementById('credit-reason').value;
+            const inputValue = parseFloat(document.getElementById('credit-delta-input').value);
+
+            if (isNaN(inputValue)) return showMsg("Please enter a valid number.", true);
+
+            // Handle the math properly based on selection
+            let inputDelta = Math.abs(inputValue);
+            if (reason.includes('(-)')) {
+                inputDelta = -inputDelta; // Force subtraction
+            } else if (reason === 'Manual Correction') {
+                inputDelta = inputValue; // Accept exactly what the user typed (+ or -)
+            }
+
+            const newCredit = Math.max(0, current + inputDelta);
+
+            showLoader(true);
+            try {
+                const res = await fetch(`${API_URL}/admin/distributors/${phone}/credit`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ credit_used: newCredit })
+                });
+                if(res.ok) {
+                    closeModals();
+                    await refreshData();
+                    showMsg(`Credit updated successfully. New utilized total: ₹${newCredit}`);
+                } else { showMsg("Failed to update.", true); }
+            } catch(e) { console.error(e); showMsg("Network Error.", true); }
+            showLoader(false);
+        }
+
+        function populateProductDropdown(selectEl) {
+            selectEl.innerHTML = '<option value="">Select Product...</option>';
+            globalProducts.forEach(p => {
+                const sizeDisplay = p.size_ml ? `${p.size_ml}ml` : 'Standard';
+                selectEl.innerHTML += `<option value="${p.sku}">${p.product_name} (${sizeDisplay}) (₹${p.price_per_carton})</option>`;
+            });
+        }
+
+        function openCreateOrderModal() {
+            const distSelect = document.getElementById('create-order-dist');
+            distSelect.innerHTML = '<option value="">Select Distributor...</option>';
+            globalDistributors.filter(d => d.status === 'active').forEach(d => {
+                distSelect.innerHTML += `<option value="${d.phone_number}">${d.company_name} (${d.phone_number})</option>`;
+            });
+
+            document.getElementById('create-order-items').innerHTML = `
+                <div class="flex gap-3 item-row mb-2">
+                    <select class="flex-1 border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white prod-select"></select>
+                    <input type="number" placeholder="Qty (Cartons)" class="w-32 border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none qty-input">
+                </div>
+            `;
+            populateProductDropdown(document.querySelector('.prod-select'));
+
+            document.getElementById('modal-overlay').style.display = 'flex';
+            document.getElementById('modal-create-order').style.display = 'flex';
+        }
+
+        function addOrderItemRow() {
+            const container = document.getElementById('create-order-items');
+            const row = document.createElement('div');
+            row.className = 'flex gap-3 item-row mb-2';
+            row.innerHTML = `
+                <select class="flex-1 border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white prod-select"></select>
+                <input type="number" placeholder="Qty (Cartons)" class="w-32 border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none qty-input">
+                <button onclick="this.parentElement.remove()" class="text-red-500 hover:text-red-700 px-2"><i class="fa-solid fa-trash"></i></button>
+            `;
+            container.appendChild(row);
+            populateProductDropdown(row.querySelector('.prod-select'));
+        }
+
+        async function submitManualOrder() {
+            const phone = document.getElementById('create-order-dist').value;
+            const payment = document.getElementById('create-order-payment').value;
+            const date = document.getElementById('create-order-date').value;
+            const address = document.getElementById('create-order-address').value;
+
+            if(!phone) return showMsg("Please select a distributor", true);
+
+            const items = [];
+            document.querySelectorAll('.item-row').forEach(row => {
+                const sku = row.querySelector('.prod-select').value;
+                const qty = parseInt(row.querySelector('.qty-input').value);
+                if (sku && qty > 0) items.push({ product_sku: sku, quantity_cartons: qty });
+            });
+
+            if(items.length === 0) return showMsg("Add at least one valid product and quantity", true);
+
+            const payload = {
+                distributor_phone: phone,
+                payment_type: payment,
+                items: items,
+                delivery_address: address || null,
+                requested_delivery_date: date || null,
+                remarks: "Manual Entry"
+            };
+
+            showLoader(true);
+            try {
+                const res = await fetch(`${API_URL}/orders/`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                
+                if(res.ok) {
+                    closeModals();
+                    await refreshData();
+                    showMsg("Order created successfully!");
+                } else {
+                    const err = await res.json();
+                    showMsg("Failed to create order: " + (err.detail || 'Unknown error'), true);
+                }
+            } catch(e) { console.error(e); showMsg("Network Error.", true); }
+            showLoader(false);
+        }
+
+        function openAddProductModal() {
+            document.getElementById('add-prod-name').value = '';
+            document.getElementById('add-prod-sku').value = '';
+            document.getElementById('add-prod-size').value = '';
+            document.getElementById('add-prod-price').value = '';
+            document.getElementById('add-prod-stock').value = '';
+            
+            document.getElementById('modal-overlay').style.display = 'flex';
+            document.getElementById('modal-add-product').style.display = 'flex';
+        }
+
+        async function submitAddProduct() {
+            const payload = {
+                product_name: document.getElementById('add-prod-name').value,
+                sku: document.getElementById('add-prod-sku').value,
+                size_ml: parseInt(document.getElementById('add-prod-size').value) || null,
+                price_per_carton: parseFloat(document.getElementById('add-prod-price').value),
+                stock_available: parseInt(document.getElementById('add-prod-stock').value) || 0
+            };
+
+            if(!payload.product_name || !payload.sku || isNaN(payload.price_per_carton)) return showMsg("Please fill required fields (Name, SKU, Price)", true);
+
+            showLoader(true);
+            try {
+                const res = await fetch(`${API_URL}/admin/products`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                if(res.ok) {
+                    closeModals();
+                    await refreshData();
+                    showMsg("Product created successfully!");
+                } else {
+                    const err = await res.json();
+                    showMsg("Failed: " + err.detail, true);
+                }
+            } catch(e) { console.error(e); showMsg("Network Error.", true); }
+            showLoader(false);
+        }
+
+        function openAddDistributorModal() {
+            document.getElementById('add-dist-company').value = '';
+            document.getElementById('add-dist-owner').value = '';
+            document.getElementById('add-dist-phone').value = '';
+            document.getElementById('add-dist-address').value = '';
+            document.getElementById('add-dist-limit').value = '';
+            document.getElementById('add-dist-status').value = 'active';
+            
+            document.getElementById('modal-overlay').style.display = 'flex';
+            document.getElementById('modal-add-distributor').style.display = 'flex';
+        }
+
+        async function submitAddDistributor() {
+            const payload = {
+                company_name: document.getElementById('add-dist-company').value,
+                owner_name: document.getElementById('add-dist-owner').value,
+                phone_number: document.getElementById('add-dist-phone').value,
+                address: document.getElementById('add-dist-address').value,
+                credit_limit: parseFloat(document.getElementById('add-dist-limit').value) || 0,
+                status: document.getElementById('add-dist-status').value
+            };
+
+            if(!payload.company_name || !payload.phone_number) return showMsg("Please fill required fields (Company, Phone)", true);
+
+            showLoader(true);
+            try {
+                const res = await fetch(`${API_URL}/admin/distributors`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                if(res.ok) {
+                    closeModals();
+                    await refreshData();
+                    showMsg("Distributor created successfully!");
+                } else {
+                    const err = await res.json();
+                    showMsg("Failed: " + err.detail, true);
+                }
+            } catch(e) { console.error(e); showMsg("Network Error.", true); }
+            showLoader(false);
+        }
+
+        // Initialize
+        window.onload = () => {
+            fetchData();
+        };
+    </script>
+</body>
+</html>

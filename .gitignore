@@ -1,0 +1,40 @@
+Environments
+
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+Python artifacts
+
+pycache/
+*.py[cod]
+*$py.class
+*.so
+
+Database
+
+*.sqlite3
+
+OS generated files
+
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Invoices and dynamic media
+backend/invoices_store/
+!backend/invoices_store/.gitkeep
+
+IDEs and Editors
+
+.vscode/
+.idea/
+*.swp
