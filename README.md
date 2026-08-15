@@ -65,7 +65,7 @@ Distributor
  
 ## Features
  
-### 🤖 Agentic AI Order Processing
+### Agentic AI Order Processing
  
 DistribuFlow uses a LangGraph-based agent to understand natural-language distributor requests. The distributor does not need to follow a rigid command format.
  
@@ -115,7 +115,7 @@ Order Creation
  
 This allows distributors to place orders without typing.
  
-### 🧠 Agentic Order Understanding
+### Agentic Order Understanding
  
 The AI extracts structured information from conversational messages. For an order, the system can identify:
  
@@ -146,7 +146,7 @@ becomes conceptually:
  
 The extracted information is then passed to deterministic backend business logic.
  
-### 🎯 Deterministic Product Resolution
+### Deterministic Product Resolution
  
 A major design principle of DistribuFlow is:
  
@@ -180,7 +180,7 @@ For example:
  
 This separates natural-language understanding from business-critical product identification.
  
-### 📊 Confidence-Based Product Matching
+### Confidence-Based Product Matching
  
 Product matching uses confidence-based routing rather than blindly accepting every AI interpretation.
  
@@ -472,7 +472,7 @@ DistribuFlow follows a layered architecture.
 └────────────────────────────────────────────┘
 ```
  
-### 🧠 Agent Architecture
+### Agent Architecture
  
 The LangGraph agent is separated into distinct responsibilities.
  
