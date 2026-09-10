@@ -19,7 +19,7 @@
 
 A distributor places an order conversationally. The bot resolves the product, collects missing slots (payment type, delivery date, address) across multiple turns, creates the order, and fires a real-time admin notification.
 
-![WhatsApp Flow](./docs/whatsapp_screenshot.png)
+![WhatsApp Bot Interaction](./docs/whatsapp_screenshot.png)
 
 > **What's happening above:**
 > `"100 ml wala coconut 5 carton dedo"` → Bot asks for payment/delivery details → `"payment credit pe krna aur friday tak chahiye"` → Bot asks for address → `"same"` → **Order `ORD-20260814-00001` created as Draft (₹12000)** → Admin notification fired automatically.
